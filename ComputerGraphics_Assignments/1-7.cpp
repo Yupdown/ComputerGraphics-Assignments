@@ -179,7 +179,7 @@ GLuint MakeShaderProgram()
 		glGetShaderInfoLog(shaderID, 512, NULL, errorLog);
 		std::cerr << "ERROR: shader program link FAILED\n" << errorLog << std::endl;
 	}
-
+	
 	return shaderID;
 }
 
