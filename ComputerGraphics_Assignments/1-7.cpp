@@ -1,49 +1,42 @@
+#include <vector>
+#include <stdio.h>
 #include <iostream>
+
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <gl/glew.h>
 #include <gl/freeglut.h>
 #include <gl/freeglut_ext.h>
 
-const GLfloat VERTEX_DATA[]
-{
-	0.5f, 0.5f, 0.0f,
-	0.5f, -0.5f, 0.0f,
-	-0.5f, -0.5f, 0.0f,
-	-0.5f, 0.5f, 0.0f
-};
+#include "OBJ_Loader.h"
 
-const GLfloat COLOR_DATA[]
-{
-	1.0f, 0.0f, 0.0f,
-	0.0f, 1.0f, 0.0f,
-	0.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 1.0f
-};
+std::vector<GLfloat> VERTEX_DATA;
+std::vector<GLfloat> COLOR_DATA;
+std::vector<GLuint> INDEX_DATA;
 
-const GLuint INDEX_DATA[]
-{
-	0, 1, 3,
-	1, 2, 3
-};
+std::vector<std::pair<glm::vec3, int>> shapeData;
+int currentShape;
 
+GLvoid LoadPolygon(const char* fileName);
 GLvoid InitBuffer();
 
-void MakeVertexShaders();
-void MakeFragmentShaders();
-GLuint MakeShaderProgram();
+GLuint MakeVertexShaders(const char* fileName);
+GLuint MakeFragmentShaders(const char* fileName);
+GLuint MakeShaderProgram(GLuint vertShader, GLuint fragShader);
 
 GLvoid drawScene(GLvoid);
+GLvoid Keyboard(unsigned char key, int x, int y);
 GLvoid Reshape(int w, int h);
-
-constexpr GLint sw = 640;
-constexpr GLint sh = 480;
-
-GLuint shaderProgramID;
-GLuint vertShader;
-GLuint fragShader;
+GLvoid Mouse(int button, int state, int x, int y);
+GLvoid Timer(int delta);
 
 char* FileToBuffer(const char* file);
 
+GLuint shaderProgramID;
 GLuint VAO, VBO[2], EBO;
+glm::mat4 mProj = glm::mat4(1.0f);
 
 int main(int argc, char** argv)
 {
@@ -51,7 +44,7 @@ int main(int argc, char** argv)
 
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(100, 100);
-	glutInitWindowSize(sw, sh);
+	glutInitWindowSize(640, 480);
 
 	glutCreateWindow("OpenGLExperiment");
 	// glutFullScreen();
@@ -65,14 +58,21 @@ int main(int argc, char** argv)
 	else
 		std::cout << "GLEW Initialization" << std::endl;
 
-	MakeVertexShaders();
-	MakeFragmentShaders();
-	shaderProgramID = MakeShaderProgram();
+	GLuint vert = MakeVertexShaders("vert.glsl");
+	GLuint frag = MakeFragmentShaders("frag.glsl");
+	shaderProgramID = MakeShaderProgram(vert, frag);
 	glUseProgram(shaderProgramID);
+	LoadPolygon("teapot.obj");
 	InitBuffer();
 
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+
 	glutDisplayFunc(drawScene);
+	glutKeyboardFunc(Keyboard);
 	glutReshapeFunc(Reshape);
+	glutMouseFunc(Mouse);
+	glutTimerFunc(0, Timer, 0);
 
 	glutMainLoop();
 
@@ -84,17 +84,48 @@ GLvoid drawScene()
 	clock_t c = clock();
 
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(shaderProgramID);
-	glBindVertexArray(VAO);
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+	for (const auto& shape : shapeData)
+	{
+		glm::mat4 t = glm::translate(glm::mat4(1.0f), shape.first);
+		glm::mat4 r = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
+		glm::mat4 transform = mProj * t * r * s;
+
+		unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
+		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
+
+		switch (shape.second)
+		{
+		case 0:
+			glPointSize(5.0f);
+			glDrawArrays(GL_POINTS, 0, 1);
+			break;
+		case 1:
+			break;
+		case 2:
+			break;
+		case 3:
+			break;
+		}
+	}
 
 	glutSwapBuffers();
 }
 
+GLvoid Timer(int delta)
+{
+	glutPostRedisplay();
+	glutTimerFunc(0, Timer, 0);
+}
+
 GLvoid Reshape(int w, int h)
 {
+	GLfloat aspect = (GLfloat)w / h;
+	mProj = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
 	glViewport(0, 0, w, h);
 }
 
@@ -105,24 +136,56 @@ GLvoid InitBuffer()
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(VERTEX_DATA), VERTEX_DATA, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * VERTEX_DATA.size(), VERTEX_DATA.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
 	glEnableVertexAttribArray(0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(COLOR_DATA), COLOR_DATA, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * COLOR_DATA.size(), COLOR_DATA.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
 	glEnableVertexAttribArray(1);
 
 	glGenBuffers(1, &EBO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(INDEX_DATA), INDEX_DATA, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * INDEX_DATA.size(), INDEX_DATA.data(), GL_STATIC_DRAW);
 }
 
-void MakeVertexShaders()
+GLvoid LoadPolygon(const char* fileName)
 {
-	GLchar* vertexSrc = FileToBuffer("vert.glsl");
-	vertShader = glCreateShader(GL_VERTEX_SHADER);
+	using namespace objl;
+
+	Loader loader;
+	if (!loader.LoadFile(fileName))
+		return;
+
+	for (int i = 0; i < loader.LoadedMeshes.size(); ++i)
+	{
+		Mesh m = loader.LoadedMeshes[i];
+
+		for (int j = 0; j < m.Vertices.size(); ++j)
+		{
+			Vector3 p = m.Vertices[j].Position;
+
+			VERTEX_DATA.push_back(p.X);
+			VERTEX_DATA.push_back(p.Y);
+			VERTEX_DATA.push_back(p.Z);
+			COLOR_DATA.push_back(1.0f);
+			COLOR_DATA.push_back(1.0f);
+			COLOR_DATA.push_back(1.0f);
+		}
+
+		for (int j = 0; j < m.Indices.size(); ++j)
+		{
+			GLuint u = m.Indices[j];
+			INDEX_DATA.push_back(u);
+		}
+	}
+}
+
+GLuint MakeVertexShaders(const char* fileName)
+{
+	GLchar* vertexSrc = FileToBuffer(fileName);
+	GLuint vertShader = glCreateShader(GL_VERTEX_SHADER);
 
 	glShaderSource(vertShader, 1, &vertexSrc, NULL);
 	glCompileShader(vertShader);
@@ -136,12 +199,13 @@ void MakeVertexShaders()
 		glGetShaderInfoLog(vertShader, 512, NULL, errorLog);
 		std::cerr << "ERROR: vertex shader compile FAILED\n" << errorLog << std::endl;
 	}
+	return vertShader;
 }
 
-void MakeFragmentShaders()
+GLuint MakeFragmentShaders(const char* fileName)
 {
-	GLchar* fragmentSrc = FileToBuffer("frag.glsl");
-	fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+	GLchar* fragmentSrc = FileToBuffer(fileName);
+	GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);
 
 	glShaderSource(fragShader, 1, &fragmentSrc, NULL);
 	glCompileShader(fragShader);
@@ -155,9 +219,10 @@ void MakeFragmentShaders()
 		glGetShaderInfoLog(fragShader, 512, NULL, errorLog);
 		std::cerr << "ERROR: fragment shader compile FAILED\n" << errorLog << std::endl;
 	}
+	return fragShader;
 }
 
-GLuint MakeShaderProgram()
+GLuint MakeShaderProgram(GLuint vertShader, GLuint fragShader)
 {
 	GLuint shaderID;
 	shaderID = glCreateProgram();
@@ -203,4 +268,47 @@ char* FileToBuffer(const char* file)
 	buf[length] = 0;					// Null terminator
 
 	return buf;							// Return the buffer
+}
+
+GLvoid Keyboard(unsigned char key, int x, int y)
+{
+	switch (toupper(key))
+	{
+	case 'P':
+		currentShape = 0;
+		break;
+	case 'L':
+		currentShape = 1;
+		break;
+	case 'T':
+		currentShape = 2;
+		break;
+	case 'R':
+		currentShape = 3;
+		break;
+	case 'C':
+		shapeData.clear();
+		break;
+	}
+}
+
+glm::vec2 ScreenToWorld(int x, int y)
+{
+	int ww = glutGet(GLUT_WINDOW_WIDTH);
+	int wh = glutGet(GLUT_WINDOW_HEIGHT);
+
+	float xp = static_cast<float>(x * 2) / ww - 1.0f;
+	float yp = static_cast<float>(y * 2) / wh - 1.0f;
+
+	glm::mat4 inv = glm::inverse(mProj);
+	return inv * glm::vec4(xp, -yp, 0.0f, 1.0f);
+}
+
+GLvoid Mouse(int button, int state, int x, int y)
+{
+	if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON)
+	{
+		glm::vec3 p = glm::vec3(ScreenToWorld(x, y), 0.0f);
+		shapeData.push_back(std::make_pair(p, currentShape));
+	}
 }
