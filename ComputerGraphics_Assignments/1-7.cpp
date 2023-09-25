@@ -37,6 +37,7 @@ char* FileToBuffer(const char* file);
 GLuint shaderProgramID;
 GLuint VAO, VBO[2], EBO;
 glm::mat4 mProj = glm::mat4(1.0f);
+glm::vec3 vPos = glm::vec3(0.0f);
 
 int main(int argc, char** argv)
 {
@@ -83,33 +84,66 @@ GLvoid drawScene()
 {
 	clock_t c = clock();
 
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.125f, 0.125f, 0.125f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(shaderProgramID);
 
+	int i = 0;
 	for (const auto& shape : shapeData)
 	{
-		glm::mat4 t = glm::translate(glm::mat4(1.0f), shape.first);
-		glm::mat4 r = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 t = glm::translate(glm::mat4(1.0f), shape.first + vPos);
+		glm::mat4 r = glm::rotate(glm::mat4(1.0f), glm::radians(sin(c * 0.01f + i++ * 0.25f) * 10.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
 		glm::mat4 transform = mProj * t * r * s;
 
 		unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
 		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
 
+		glm::vec3 col = glm::vec3(i / 4 % 2, i / 2 % 2, i % 2);
+
+		modelLocation = glGetUniformLocation(shaderProgramID, "model_Color");
+		glUniform3f(modelLocation, col.r, col.b, col.g);
+
 		switch (shape.second)
 		{
 		case 0:
-			glPointSize(5.0f);
-			glDrawArrays(GL_POINTS, 0, 1);
+			glBegin(GL_POINTS);
+			glVertex2i(0.0f, 0.0f);
+			glEnd();
 			break;
 		case 1:
+			glBegin(GL_LINES);
+			glVertex2f(-0.1f, -0.1f);
+			glVertex2f(0.1f, 0.1f);
+			glEnd();
 			break;
 		case 2:
+		{
+			GLfloat p1[3] = { -0.1, -0.1, 1 };
+			GLfloat p2[3] = { 0.1, -0.1, 1 };
+			GLfloat p3[3] = { 0.0, 0.1, 1 };
+			glBegin(GL_POLYGON);
+			glVertex3fv(p1);
+			glVertex3fv(p2);
+			glVertex3fv(p3);
+			glEnd();
 			break;
+		}
 		case 3:
+		{
+			GLfloat p1[3] = { -0.1, -0.1, 1 };
+			GLfloat p2[3] = { 0.1, -0.1, 1 };
+			GLfloat p3[3] = { 0.1, 0.1, 1 };
+			GLfloat p4[3] = { -0.1, 0.1, 1 };
+			glBegin(GL_POLYGON);
+			glVertex3fv(p1);
+			glVertex3fv(p2);
+			glVertex3fv(p3);
+			glVertex3fv(p4);
+			glEnd();
 			break;
+		}
 		}
 	}
 
@@ -126,6 +160,7 @@ GLvoid Reshape(int w, int h)
 {
 	GLfloat aspect = (GLfloat)w / h;
 	mProj = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
+
 	glViewport(0, 0, w, h);
 }
 
@@ -286,6 +321,18 @@ GLvoid Keyboard(unsigned char key, int x, int y)
 	case 'R':
 		currentShape = 3;
 		break;
+	case 'W':
+		vPos += glm::vec3(0.0f, 0.1f, 0.0f);
+		break;
+	case 'A':
+		vPos += glm::vec3(-0.1f, 0.0f, 0.0f);
+		break;
+	case 'S':
+		vPos += glm::vec3(0.0f, -0.1f, 0.0f);
+		break;
+	case 'D':
+		vPos += glm::vec3(0.1f, 0.0f, 0.0f);
+		break;
 	case 'C':
 		shapeData.clear();
 		break;
@@ -301,7 +348,7 @@ glm::vec2 ScreenToWorld(int x, int y)
 	float yp = static_cast<float>(y * 2) / wh - 1.0f;
 
 	glm::mat4 inv = glm::inverse(mProj);
-	return inv * glm::vec4(xp, -yp, 0.0f, 1.0f);
+	return (glm::vec3)(inv * glm::vec4(xp, -yp, 0.0f, 1.0f)) - vPos;
 }
 
 GLvoid Mouse(int button, int state, int x, int y)

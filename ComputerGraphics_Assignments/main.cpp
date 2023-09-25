@@ -57,7 +57,7 @@ int main(int argc, char** argv)
 	GLuint frag = MakeFragmentShaders("frag.glsl");
 	shaderProgramID = MakeShaderProgram(vert, frag);
 	glUseProgram(shaderProgramID);
-	LoadPolygon("nabin_blender_02.obj");
+	LoadPolygon("suzanne.obj");
 	InitBuffer();
 
 	glEnable(GL_DEPTH_TEST);
@@ -81,10 +81,11 @@ GLvoid drawScene()
 
 	glUseProgram(shaderProgramID);
 
-	glm::mat4 t = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.2f, -0.5f));
+	glm::mat4 t = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 	glm::mat4 r = glm::rotate(glm::mat4(1.0f), glm::radians(c * 0.1f), glm::vec3(0.0f, 1.0f, 0.0f));
+	r = glm::rotate(r, glm::radians(c * 0.02f), glm::vec3(0.0f, 0.0f, 1.0f));
 	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 0.2f);
-	glm::mat4 proj = glm::perspective(glm::radians(sin(c * 0.002f) * 5.0f + 60.0f), aspect, 0.1f, 100.0f);
+	glm::mat4 proj = glm::perspective(glm::radians(sin(c * 0.002f) * 15.0f + 60.0f), aspect, 0.1f, 100.0f);
 	glm::mat4 transform = proj * t * r * s;
 
 	unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
@@ -149,9 +150,9 @@ GLvoid LoadPolygon(const char* fileName)
 			VERTEX_DATA.push_back(p.X);
 			VERTEX_DATA.push_back(p.Y);
 			VERTEX_DATA.push_back(p.Z);
-			COLOR_DATA.push_back(n.Z * n.Z);
-			COLOR_DATA.push_back(n.Z * n.Z);
-			COLOR_DATA.push_back(n.Z * n.Z);
+			COLOR_DATA.push_back(n.X);
+			COLOR_DATA.push_back(n.Y);
+			COLOR_DATA.push_back(n.Z);
 		}
 
 		for (int j = 0; j < m.Indices.size(); ++j)
