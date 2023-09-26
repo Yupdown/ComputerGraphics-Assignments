@@ -1,6 +1,7 @@
 #include <vector>
 #include <stdio.h>
 #include <iostream>
+#include <format>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -11,6 +12,8 @@
 #include <gl/freeglut_ext.h>
 
 #include "OBJ_Loader.h"
+
+std::string windowTitle = "OpenGLExperiment";
 
 std::vector<GLfloat> VERTEX_DATA;
 std::vector<GLfloat> COLOR_DATA;
@@ -25,7 +28,7 @@ GLuint MakeShaderProgram(GLuint vertShader, GLuint fragShader);
 
 GLvoid drawScene(GLvoid);
 GLvoid Reshape(int w, int h);
-GLvoid Timer(int delta);
+GLvoid Timer();
 
 char* FileToBuffer(const char* file);
 
@@ -41,7 +44,7 @@ int main(int argc, char** argv)
 	glutInitWindowPosition(100, 100);
 	glutInitWindowSize(640, 480);
 
-	glutCreateWindow("OpenGLExperiment");
+	glutCreateWindow(windowTitle.c_str());
 	// glutFullScreen();
 
 	glewExperimental = GL_TRUE;
@@ -65,7 +68,7 @@ int main(int argc, char** argv)
 
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(Reshape);
-	glutTimerFunc(0, Timer, 0);
+	glutIdleFunc(Timer);
 
 	glutMainLoop();
 
@@ -83,9 +86,9 @@ GLvoid drawScene()
 
 	glm::mat4 t = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 	glm::mat4 r = glm::rotate(glm::mat4(1.0f), glm::radians(c * 0.1f), glm::vec3(0.0f, 1.0f, 0.0f));
-	r = glm::rotate(r, glm::radians(c * 0.02f), glm::vec3(0.0f, 0.0f, 1.0f));
+	r = glm::rotate(r, glm::radians(c * 0.05f), glm::vec3(0.0f, 0.0f, 1.0f));
 	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 0.2f);
-	glm::mat4 proj = glm::perspective(glm::radians(sin(c * 0.002f) * 15.0f + 60.0f), aspect, 0.1f, 100.0f);
+	glm::mat4 proj = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 100.0f);
 	glm::mat4 transform = proj * t * r * s;
 
 	unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
@@ -97,10 +100,21 @@ GLvoid drawScene()
 	glutSwapBuffers();
 }
 
-GLvoid Timer(int delta)
+GLvoid Timer()
 {
+	static int fCount = 0;
+	static clock_t lt;
+	clock_t t = clock();
+	fCount += 1;
+
+	if (lt / 1000 != t / 1000)
+	{
+		glutSetWindowTitle((windowTitle + std::format(" ({} FPS)", fCount)).c_str());
+		fCount = 0;
+	}
+	lt = t;
+
 	glutPostRedisplay();
-	glutTimerFunc(0, Timer, 0);
 }
 
 GLvoid Reshape(int w, int h)

@@ -353,7 +353,7 @@ glm::vec2 ScreenToWorld(int x, int y)
 
 GLvoid Mouse(int button, int state, int x, int y)
 {
-	if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON)
+	if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON && shapeData.size() < 10)
 	{
 		glm::vec3 p = glm::vec3(ScreenToWorld(x, y), 0.0f);
 		shapeData.push_back(std::make_pair(p, currentShape));
