@@ -102,17 +102,22 @@ GLvoid drawScene()
 
 GLvoid Timer()
 {
-	static int fCount = 0;
-	static clock_t lt;
-	clock_t t = clock();
-	fCount += 1;
-
-	if (lt / 1000 != t / 1000)
+#ifdef _DEBUG
+	constexpr int REFRESH_RATE = 20;
+	static int frameCount = 0;
+	static std::chrono::steady_clock timer;
+	static std::chrono::steady_clock::time_point lc;
+	std::chrono::steady_clock::time_point c = timer.now();
+	double delta = std::chrono::duration_cast<std::chrono::duration<double>>(c - lc).count();
+	if (delta * REFRESH_RATE > 1.0)
 	{
-		glutSetWindowTitle((windowTitle + std::format(" ({} FPS)", fCount)).c_str());
-		fCount = 0;
+		int fps = (int)round(1.0 / delta * frameCount);
+		glutSetWindowTitle(("OpenGL Application" + std::format(" @ {} FPS", fps)).c_str());
+		frameCount = 0;
+		lc = c;
 	}
-	lt = t;
+	frameCount += 1;
+#endif
 
 	glutPostRedisplay();
 }

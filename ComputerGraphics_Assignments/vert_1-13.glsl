@@ -11,5 +11,5 @@ out vec3 vert_Color;
 void main()
 {
 	gl_Position = model_Transform * vec4(in_Position, 1.0f);
-	vert_Color = model_Color;
+	vert_Color = in_Color;
 } 

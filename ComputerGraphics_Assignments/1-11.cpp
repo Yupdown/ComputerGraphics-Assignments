@@ -121,7 +121,7 @@ GLvoid drawScene()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(shaderProgramID);
-
+	
 	if (currentShape == 0)
 	{
 		int i = 0;
@@ -135,7 +135,8 @@ GLvoid drawScene()
 			unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
 			glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
 
-			glm::vec3 col = glm::vec3(i / 4 % 2, i / 2 % 2, i % 2);
+			int ip = i + 1;
+			glm::vec3 col = glm::vec3(ip / 4 % 2, ip / 2 % 2, ip % 2);
 
 			modelLocation = glGetUniformLocation(shaderProgramID, "model_Color");
 			glUniform3f(modelLocation, col.r, col.b, col.g);

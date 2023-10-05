@@ -14,23 +14,23 @@
 
 std::vector<GLfloat> VERTEX_DATA
 {
-	-1.0f, -1.0f, 0.0f,
-	-1.0f, 1.0f, 0.0f,
-	1.0f, -1.0f, 0.0f,
-	1.0f, 1.0f, 0.0f,
+	-0.5f, -0.5f, 0.0f,
+	-0.5f, 0.5f, 0.0f,
+	0.5f, -0.5f, 0.0f,
+	0.5f, 0.5f, 0.0f,
 };
 
 std::vector<GLfloat> COLOR_DATA
 {
-	1.0f, 1.0f, 1.0f,
-	1.0f, 1.0f, 1.0f,
-	1.0f, 1.0f, 1.0f,
+	1.0f, 0.0f, 0.0f,
+	0.0f, 1.0f, 0.0f,
+	0.0f, 0.0f, 1.0f,
 	1.0f, 1.0f, 1.0f,
 };
 
 std::vector<GLuint> INDEX_DATA
 {
-	0, 2, 1, 3, 1, 2
+	0, 1, 3, 2, 0
 };
 
 glm::vec3 colors[6] =
@@ -42,11 +42,9 @@ glm::vec3 colors[6] =
 	{ 0.0f, 0.0f, 1.0f },
 	{ 1.0f, 0.0f, 1.0f }
 };
-glm::vec3 positions[5];
-bool line = false;
-int count = 1;
 
 time_t e_time = 0;
+int drag_index = -1;
 
 GLvoid drawScene(GLvoid);
 GLvoid Reshape(int w, int h);
@@ -56,6 +54,8 @@ GLvoid Timer();
 
 GLvoid LoadPolygon(const char* fileName);
 GLvoid InitBuffer();
+GLvoid ValidateVBO();
+GLvoid MouseMotion(int x, int y);
 
 GLuint MakeVertexShaders(const char* fileName);
 GLuint MakeFragmentShaders(const char* fileName);
@@ -88,7 +88,7 @@ void main(int argc, char** argv)
 	else
 		std::cout << "GLEW Initialization" << std::endl;
 
-	GLuint vert = MakeVertexShaders("vert.glsl");
+	GLuint vert = MakeVertexShaders("vert_1-13.glsl");
 	GLuint frag = MakeFragmentShaders("frag.glsl");
 	shaderProgramID = MakeShaderProgram(vert, frag);
 	glUseProgram(shaderProgramID);
@@ -97,13 +97,11 @@ void main(int argc, char** argv)
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
-	for (int i = 1; i < 5; ++i)
-		positions[i] = glm::vec3((float)(rand() % 2000 - 1000) / 1000, (float)(rand() % 2000 - 1000) / 1000, 0.0f);
-
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(Reshape);
 	glutKeyboardFunc(Keyboard);
 	glutMouseFunc(Mouse);
+	glutMotionFunc(MouseMotion);
 	glutIdleFunc(Timer);
 	glutMainLoop();
 }
@@ -115,53 +113,27 @@ glm::vec2 screen_to_world(int x, int y)
 	wh = glutGet(GLUT_WINDOW_HEIGHT);
 	float xp = static_cast<float>(x * 2) / ww - 1.0f;
 	float yp = static_cast<float>(y * 2) / wh - 1.0f;
-	return glm::vec2(xp, -yp);
+	return glm::inverse(mProj) * glm::vec4(xp, -yp, 0.0f, 1.0f);
 }
 
 GLvoid drawScene()
 {
-	glm::vec3 col = colors[count - 1] * 0.25f;
+	glm::vec3 col = colors[0] * 0.25f;
 	glClearColor(col.r, col.g, col.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(shaderProgramID);
 
-	for (int c = 0; c < count; ++c)
-	{
-		for (float l = -4.0f + (line ? 0.0f : e_time % 20 * 0.005f); l < 4.0f; l += (line ? 0.01f : 0.1f))
-		{
-			float x = 0.0f;
-			float y = 0.0f;
-			float xp = l;
-			float yp = pow(l, 3.0f);
+	glm::mat4 t = glm::translate(glm::mat4(1.0f), vPos);
+	glm::mat4 r = glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
+	glm::mat4 transform = mProj * t * r * s;
 
-			for (float i = 0.0f; i < 24.0f; i += 1.0f)
-			{
-				x += xp / (i * 4.0f + 1.5f + cos(e_time * 0.005f) * 0.25f);
-				y += yp / (i * 4.0f + 3.5f + sin(e_time * 0.005f) * 0.25f);
+	unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
+	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
 
-				xp *= -pow(l, 4.0f) / (i * 2.0f + 1.0f) / (i * 2.0f + 2.0f);
-				yp *= -pow(l, 4.0f) / (i * 2.0f + 2.0f) / (i * 2.0f + 3.0f);
-			}
-
-			glm::mat4 t = glm::translate(glm::mat4(1.0f), positions[c] + glm::vec3(x, y, 0.0f) * 0.25f + vPos);
-			glm::mat4 r = glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
-			glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 0.0025f);
-			glm::mat4 transform = mProj * t * r * s;
-
-			unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
-			glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
-
-			int ip = c + 1;
-			glm::vec3 col = glm::vec3(ip / 4 % 2, ip / 2 % 2, ip % 2);
-
-			modelLocation = glGetUniformLocation(shaderProgramID, "model_Color");
-			glUniform3f(modelLocation, col.r, col.b, col.g);
-
-			glBindVertexArray(VAO);
-			glDrawElements(GL_TRIANGLES, INDEX_DATA.size(), GL_UNSIGNED_INT, 0);
-		}
-	}
+	glBindVertexArray(VAO);
+	glDrawElements(GL_LINE_STRIP, INDEX_DATA.size(), GL_UNSIGNED_INT, 0);
 
 	glutSwapBuffers();
 }
@@ -176,9 +148,25 @@ GLvoid Reshape(int w, int h)
 
 GLvoid Mouse(int button, int state, int x, int y)
 {
-	glm::vec2 mouse_position = screen_to_world(x, y);
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
-		count = std::min(count + 1, 5);
+	glm::vec2 pos = screen_to_world(x, y);
+	if (button == GLUT_LEFT_BUTTON)
+	{
+		if (state == GLUT_DOWN)
+		{
+			for (int i = 0; i < 4; ++i)
+			{
+				glm::vec2 dv = pos - glm::vec2(VERTEX_DATA[i * 3], VERTEX_DATA[i * 3 + 1]);
+				if (dv.x * dv.x + dv.y * dv.y <= 0.025f)
+				{
+					drag_index = i;
+					MouseMotion(x, y);
+					break;
+				}
+			}
+		}
+		else if (state == GLUT_UP)
+			drag_index = -1;
+	}
 	glutPostRedisplay();
 }
 
@@ -190,30 +178,6 @@ GLvoid Timer()
 
 GLvoid Keyboard(unsigned char key, int x, int y)
 {
-	switch (toupper(key))
-	{
-	case 'P':
-		line = false;
-		break;
-	case 'L':
-		line = true;
-		break;
-	case '1':
-		count = 1;
-		break;
-	case '2':
-		count = 2;
-		break;
-	case '3':
-		count = 3;
-		break;
-	case '4':
-		count = 4;
-		break;
-	case '5':
-		count = 5;
-		break;
-	}
 	glutPostRedisplay();
 }
 
@@ -324,4 +288,24 @@ char* FileToBuffer(const char* file)
 	buf[length] = 0;					// Null terminator
 
 	return buf;							// Return the buffer
+}
+
+GLvoid ValidateVBO()
+{
+	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * VERTEX_DATA.size(), VERTEX_DATA.data());
+}
+
+GLvoid MouseMotion(int x, int y)
+{
+	glm::vec2 pos = screen_to_world(x, y);
+
+	if (drag_index >= 0)
+	{
+		VERTEX_DATA[drag_index * 3] = pos.x;
+		VERTEX_DATA[drag_index * 3 + 1] = pos.y;
+		ValidateVBO();
+	}
+
+	glutPostRedisplay();
 }
