@@ -11,80 +11,7 @@
 #include <gl/freeglut_ext.h>
 
 #include "OBJ_Loader.h"
-
-class Mesh
-{
-private:
-	std::vector<GLfloat> vertexData;
-	std::vector<GLfloat> colorData;
-	std::vector<GLuint> indexData;
-
-	GLuint vao;
-	GLuint vbo[2];
-	GLuint ebo;
-
-public:
-	Mesh()
-	{
-
-	}
-
-	~Mesh()
-	{
-
-	}
-
-	void AppendVertex(const glm::vec3& v)
-	{
-		vertexData.push_back(v.x);
-		vertexData.push_back(v.y);
-		vertexData.push_back(v.z);
-	}
-
-	void AppendColor(const glm::vec3& v)
-	{
-		colorData.push_back(v.x);
-		colorData.push_back(v.y);
-		colorData.push_back(v.z);
-	}
-
-	void AppendIndex(GLuint v)
-	{
-		indexData.push_back(v);
-	}
-
-	void MakeArrayBuffers()
-	{
-		glGenVertexArrays(1, &vao);
-		glGenBuffers(2, vbo);
-		glBindVertexArray(vao);
-
-		glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertexData.size(), vertexData.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-		glEnableVertexAttribArray(0);
-
-		glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * colorData.size(), colorData.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-		glEnableVertexAttribArray(1);
-
-		glGenBuffers(1, &ebo);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indexData.size(), indexData.data(), GL_STATIC_DRAW);
-	}
-
-	void Draw()
-	{
-		glBindVertexArray(vao);
-		if (indexData.size() == 1)
-			glDrawElements(GL_POINTS, indexData.size(), GL_UNSIGNED_INT, 0);
-		else if (indexData.size() < 3)
-			glDrawElements(GL_LINES, indexData.size(), GL_UNSIGNED_INT, 0);
-		else
-			glDrawElements(GL_POLYGON, indexData.size(), GL_UNSIGNED_INT, 0);
-	}
-};
+#include "Mesh.hpp"
 
 Mesh meshes[6];
 glm::vec2 shapePositions[15];
@@ -216,7 +143,7 @@ GLvoid drawScene()
 		modelLocation = glGetUniformLocation(shaderProgramID, "model_Color");
 		glUniform3f(modelLocation, col.r, col.b, col.g);
 
-		meshes[shapes[i] - 1].Draw();
+		meshes[shapes[i] - 1].DrawPolygon();
 	}
 
 	glutSwapBuffers();
