@@ -1,0 +1,251 @@
+#include "pch.h"
+#include "OBJ_Loader.h"
+
+std::string windowTitle = "OpenGLExperiment";
+
+constexpr char GREY_LEVEL[] = R"( .:-=+%*@#)";
+constexpr int SCREEN_WIDTH = 128;
+constexpr int SCREEN_HEIGHT = 128;
+
+glm::vec4 valueBuffer[SCREEN_WIDTH][SCREEN_HEIGHT];
+float depthBuffer[SCREEN_WIDTH][SCREEN_HEIGHT];
+char textBuffer[(SCREEN_WIDTH + 1) * SCREEN_HEIGHT];
+
+class ShaderProgram
+{
+public:
+	struct Data
+	{
+		glm::vec4 position;
+		glm::vec4 color;
+		glm::vec4 normal;
+
+		static Data lerp(const Data& lhs, const Data& rhs, float t)
+		{
+			Data out;
+			out.position = lhs.position + (rhs.position - lhs.position) * t;
+			out.color = lhs.color + (rhs.color - lhs.color) * t;
+			out.normal = lhs.normal + (rhs.normal - lhs.normal) * t;
+			return out;
+		}
+	};
+
+public:
+	glm::mat4 worldTransform;
+	glm::mat4 viewTransform;
+	glm::mat4 projectTransform;
+
+public:
+	Data VertexShader(const Data& in)
+	{
+		Data out;
+		out.position = projectTransform * viewTransform * worldTransform * in.position;
+		out.normal = in.normal;
+		out.color = in.color;
+		return out;
+	}
+
+	glm::vec4 FragmentShader(const Data& in)
+	{
+		return glm::vec4(glm::vec3(in.color), in.normal.y * 0.5f + 0.5f);
+	}
+};
+
+ShaderProgram* program;
+
+std::vector<GLfloat> VERTEX_DATA;
+std::vector<GLfloat> NORMAL_DATA;
+std::vector<GLuint> INDEX_DATA;
+
+glm::mat4 viewportTransform;
+
+inline float CCW(float ax, float ay, float bx, float by, float cx, float cy)
+{
+	return (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+}
+
+GLvoid DrawScene(GLvoid);
+GLvoid Timer();
+GLvoid LoadPolygon(const char* fileName);
+
+
+GLfloat aspect = 1.0f;
+float elapsedTime = 0.0f;
+
+int main(int argc, char** argv)
+{
+	program = new ShaderProgram();
+
+	program->worldTransform = glm::identity<glm::mat4>();
+	program->viewTransform = glm::identity<glm::mat4>();
+	program->projectTransform = glm::identity<glm::mat4>();
+
+	viewportTransform = glm::identity<glm::mat4>();
+	viewportTransform[0][0] = SCREEN_WIDTH * 0.5f;
+	viewportTransform[1][1] = -SCREEN_HEIGHT * 0.5f;
+	viewportTransform[3][0] = SCREEN_WIDTH * 0.5f;
+	viewportTransform[3][1] = SCREEN_HEIGHT * 0.5f;
+
+	LoadPolygon("yup_optimized.obj");
+
+	while (true)
+	{
+		Timer();
+		DrawScene();
+	}
+
+	delete program;
+	return 0;
+}
+
+GLvoid Timer()
+{
+
+}
+
+GLvoid DrawScene()
+{
+	elapsedTime = static_cast<float>(clock()) / 1000.0f;
+
+	// clear buffers
+	memset(valueBuffer, 0, sizeof(valueBuffer));
+	memset(depthBuffer, 0, sizeof(depthBuffer));
+
+	// calculate and append transform matrix
+	float aspect = static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT;
+	glm::mat4 t = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.1f, -1.0f)); // glm::sin(elapsedTime) - 2.5f));
+	glm::mat4 r = glm::rotate(glm::mat4(1.0f), 0.3f, glm::vec3(1.0f, 0.0f, 0.0f));
+	r = glm::rotate(r, elapsedTime * 3.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 0.5f);
+
+	program->worldTransform = t * r * s;
+	program->projectTransform = glm::perspective(glm::radians(80.0f + sin(elapsedTime) * 40.0f), aspect, 0.1f, 100.0f); //glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
+
+	auto funcGetT = [](const glm::vec4& lhs, const glm::vec4& rhs, float y) {
+		float t = (y - lhs.y) / (rhs.y - lhs.y);
+		return t;
+	};
+
+	// add fragment per triangle
+	for (int index = 0; index + 2 < INDEX_DATA.size(); index += 3)
+	{
+		ShaderProgram::Data vertexData[3];
+
+		for (int offset = 0; offset < 3; ++offset)
+		{
+			ShaderProgram::Data dataIn;
+			int vindex = INDEX_DATA[index + offset] * 3;
+			dataIn.position = glm::vec4(VERTEX_DATA[vindex], VERTEX_DATA[vindex + 1], VERTEX_DATA[vindex + 2], 1.0f);
+			dataIn.color = glm::vec4(1.0f);
+			dataIn.normal = glm::vec4(NORMAL_DATA[vindex], NORMAL_DATA[vindex + 1], NORMAL_DATA[vindex + 2], 1.0f);
+
+			vertexData[offset] = program->VertexShader(dataIn);
+			glm::vec4 vClip = vertexData[offset].position;
+
+			if (vClip.w != 0.0f)
+				vClip /= vClip.w;
+
+			vertexData[offset].position = viewportTransform * vClip;
+		}
+
+		if (CCW(vertexData[0].position.x, vertexData[0].position.y,
+			vertexData[1].position.x, vertexData[1].position.y,
+			vertexData[2].position.x, vertexData[2].position.y) > 0.0f)
+			continue;
+
+		if (vertexData[0].position.y > vertexData[1].position.y)
+			std::swap(vertexData[0], vertexData[1]);
+		if (vertexData[1].position.y > vertexData[2].position.y)
+			std::swap(vertexData[1], vertexData[2]);
+		if (vertexData[0].position.y > vertexData[1].position.y)
+			std::swap(vertexData[0], vertexData[1]);
+
+		float ymin = vertexData[0].position.y;
+		float ymax = vertexData[2].position.y;
+
+		int iymin = static_cast<int>(glm::ceil(ymin));
+		int iymax = static_cast<int>(glm::ceil(ymax));
+
+		for (int y = iymin; y < iymax; ++y)
+		{
+			if (y < 0 || y >= SCREEN_HEIGHT)
+				continue;
+			
+			ShaderProgram::Data vfrom;
+			ShaderProgram::Data vto;
+
+			vfrom = ShaderProgram::Data::lerp(vertexData[0], vertexData[2], funcGetT(vertexData[0].position, vertexData[2].position, y));
+			if (y < vertexData[1].position.y)
+				vto = ShaderProgram::Data::lerp(vertexData[0], vertexData[1], funcGetT(vertexData[0].position, vertexData[1].position, y));
+			else
+				vto = ShaderProgram::Data::lerp(vertexData[1], vertexData[2], funcGetT(vertexData[1].position, vertexData[2].position, y));
+			if (vfrom.position.x > vto.position.x)
+				std::swap(vfrom, vto);
+
+			int ixmin = static_cast<int>(glm::ceil(vfrom.position.x));
+			int ixmax = static_cast<int>(glm::ceil(vto.position.x));
+
+			for (int x = ixmin; x < ixmax; ++x)
+			{
+				if (x < 0 || x >= SCREEN_WIDTH)
+					continue;
+
+				ShaderProgram::Data v = ShaderProgram::Data::lerp(vfrom, vto, (x - vfrom.position.x) / (vto.position.x - vfrom.position.x));
+				if (depthBuffer[x][y] > 0 && depthBuffer[x][y] <= v.position.z)
+					continue;
+
+				valueBuffer[x][y] = program->FragmentShader(v);
+				depthBuffer[x][y] = v.position.z;
+			}
+		}
+	}
+
+	// write text from the buffer
+	for (int y = 0; y < SCREEN_HEIGHT; ++y)
+	{
+		for (int x = 0; x < SCREEN_WIDTH; ++x)
+		{
+			glm::vec4 col = valueBuffer[x][y];
+			int value = glm::ceil(col.a * sizeof(GREY_LEVEL) - 2);
+			textBuffer[x + y * (SCREEN_WIDTH + 1)] = GREY_LEVEL[glm::clamp(value, 0, static_cast<int>(sizeof(GREY_LEVEL) - 2))];
+		}
+		textBuffer[y * (SCREEN_WIDTH + 1) + SCREEN_WIDTH] = y + 1 < SCREEN_HEIGHT ? '\n' : '\0';
+	}
+
+	// draw onto the screen from the text
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { 0, 0 });
+	std::cout << textBuffer;
+}
+
+GLvoid LoadPolygon(const char* fileName)
+{
+	using namespace objl;
+
+	Loader loader;
+	if (!loader.LoadFile(fileName))
+		return;
+
+	for (int i = 0; i < loader.LoadedMeshes.size(); ++i)
+	{
+		Mesh m = loader.LoadedMeshes[i];
+
+		for (int j = 0; j < m.Vertices.size(); ++j)
+		{
+			Vector3 p = m.Vertices[j].Position;
+			Vector3 n = m.Vertices[j].Normal;
+
+			VERTEX_DATA.push_back(p.X);
+			VERTEX_DATA.push_back(p.Y);
+			VERTEX_DATA.push_back(p.Z);
+			NORMAL_DATA.push_back(n.X);
+			NORMAL_DATA.push_back(n.Y);
+			NORMAL_DATA.push_back(n.Z);
+		}
+
+		for (int j = 0; j < m.Indices.size(); ++j)
+		{
+			GLuint u = m.Indices[j];
+			INDEX_DATA.push_back(u);
+		}
+	}
+}

@@ -93,6 +93,9 @@
     <ClCompile Include="pch.cpp">
       <Filter>Precompiled Headers</Filter>
     </ClCompile>
+    <ClCompile Include="console_output.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OBJ_Loader.h">
