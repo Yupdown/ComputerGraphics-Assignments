@@ -1,14 +1,4 @@
-#include <vector>
-#include <stdio.h>
-#include <iostream>
-
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <gl/glew.h>
-#include <gl/freeglut.h>
-#include <gl/freeglut_ext.h>
+#include "pch.h"
 
 #include "OBJ_Loader.h"
 

@@ -1,16 +1,5 @@
-#include <vector>
-#include <stdio.h>
-#include <iostream>
-
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <gl/glew.h>
-#include <gl/freeglut.h>
-#include <gl/freeglut_ext.h>
-
-#include "OBJ_Loader.h"
+#include "pch.h"
+#include "Mesh.hpp"
 
 std::vector<GLfloat> VERTEX_DATA
 {
@@ -42,6 +31,11 @@ glm::vec3 colors[6] =
 	{ 0.0f, 0.0f, 1.0f },
 	{ 1.0f, 0.0f, 1.0f }
 };
+
+float ccw(float ax, float ay, float bx, float by, float cx, float cy)
+{
+	return (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+}
 
 time_t e_time = 0;
 int drag_index = -1;
@@ -155,12 +149,28 @@ GLvoid Mouse(int button, int state, int x, int y)
 		{
 			for (int i = 0; i < 4; ++i)
 			{
-				glm::vec2 dv = pos - glm::vec2(VERTEX_DATA[i * 3], VERTEX_DATA[i * 3 + 1]);
+				glm::vec2 dv = pos - glm::vec2(VERTEX_DATA[i * 3], VERTEX_DATA[i * 3 + 1]) - glm::vec2(vPos.x, vPos.y);
 				if (dv.x * dv.x + dv.y * dv.y <= 0.025f)
 				{
 					drag_index = i;
 					MouseMotion(x, y);
 					break;
+				}
+			}
+
+			if (drag_index < 0)
+			{
+				pos.x -= vPos.x;
+				pos.y -= vPos.y;
+				float d0 = ccw(VERTEX_DATA[0], VERTEX_DATA[1], VERTEX_DATA[6], VERTEX_DATA[7], pos.x, pos.y);
+				float d1 = ccw(VERTEX_DATA[6], VERTEX_DATA[7], VERTEX_DATA[9], VERTEX_DATA[10], pos.x, pos.y);
+				float d2 = ccw(VERTEX_DATA[9], VERTEX_DATA[10], VERTEX_DATA[3], VERTEX_DATA[4], pos.x, pos.y);
+				float d3 = ccw(VERTEX_DATA[3], VERTEX_DATA[4], VERTEX_DATA[0], VERTEX_DATA[1], pos.x, pos.y);
+
+				if (d0 > 0.0f && d1 > 0.0f && d2 > 0.0f && d3 > 0.0f)
+				{
+					drag_index = 10;
+					MouseMotion(x, y);
 				}
 			}
 		}
@@ -302,9 +312,16 @@ GLvoid MouseMotion(int x, int y)
 
 	if (drag_index >= 0)
 	{
-		VERTEX_DATA[drag_index * 3] = pos.x;
-		VERTEX_DATA[drag_index * 3 + 1] = pos.y;
-		ValidateVBO();
+		if (drag_index == 10)
+		{
+			vPos = glm::vec3(pos, 0.0f);
+		}
+		else
+		{
+			VERTEX_DATA[drag_index * 3] = pos.x - vPos.x;
+			VERTEX_DATA[drag_index * 3 + 1] = pos.y - vPos.y;
+			ValidateVBO();
+		}
 	}
 
 	glutPostRedisplay();
