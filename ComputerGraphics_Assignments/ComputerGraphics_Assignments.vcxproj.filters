@@ -99,6 +99,12 @@
     <ClCompile Include="console_output.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="1-18.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="1-19.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OBJ_Loader.h">

@@ -119,7 +119,7 @@ GLvoid DrawScene()
 	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 0.5f);
 
 	program->worldTransform = t * r * s;
-	program->projectTransform = glm::perspective(glm::radians(80.0f + sin(elapsedTime) * 40.0f), aspect, 0.1f, 100.0f); //glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
+	program->projectTransform = glm::perspective(glm::radians(80.0f + sin(elapsedTime) * 20.0f), aspect, 0.1f, 100.0f); //glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
 
 	auto funcGetT = [](const glm::vec4& lhs, const glm::vec4& rhs, float y) {
 		float t = (y - lhs.y) / (rhs.y - lhs.y);
