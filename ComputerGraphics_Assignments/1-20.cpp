@@ -1,8 +1,7 @@
 #include "pch.h"
 #include "Mesh.hpp"
 
-Mesh meshSphere;
-Mesh meshRing;
+Mesh mesh;
 Mesh meshGizmo;
 
 std::string windowTitle = "OpenGLExperiment";
@@ -24,53 +23,23 @@ char* FileToBuffer(const char* file);
 GLuint shaderProgramID;
 GLfloat aspect = 1.0f;
 
+int win_id;
+
 bool drawMode = false;
 bool depthTest = true;
 
-bool shape = false;
-
-float rotateX = 0.0f;
-float rotateY = 0.0f;
-
-bool projFlag = false;
-float projFactor = 0.0f;
+float oTranslatonXSpeed = 0.0f;
+float oRotationYSpeed = 0.0f;
 
 struct Transform
 {
 	glm::vec3 position;
 	glm::vec3 rotation;
 	glm::vec3 scale;
-
-	Transform()
-	{
-		position = glm::vec3(0.0f, 0.0f, 0.0f);
-		rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		scale = glm::vec3(1.0f, 1.0f, 1.0f);
-	}
 };
 
-glm::mat4 GetRotationMatrix(const Transform& transform)
-{
-	glm::mat4 r = glm::mat4(1.0f);
-	r = glm::rotate(r, glm::radians(transform.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-	r = glm::rotate(r, glm::radians(transform.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-	r = glm::rotate(r, glm::radians(transform.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-	return r;
-}
-
-glm::mat4 GetMatrix(const Transform& transform)
-{
-	glm::mat4 t = glm::translate(glm::mat4(1.0f), transform.position);
-	glm::mat4 r = GetRotationMatrix(transform);
-	glm::mat4 s = glm::scale(glm::mat4(1.0f), transform.scale);
-
-	return t * r * s;
-}
-
-Transform transformGlobal;
-Transform transformStar[3];
-Transform transformPlanet[3];
-Transform transformMoon[3];
+Transform tr[9];
+int parent[9] = {-1, 7, 7, 7, 7, 7, 7, 8, -1};
 
 glm::mat4 projPerspective = glm::mat4(1.0f);
 glm::mat4 projOrthographic = glm::mat4(1.0f);
@@ -95,30 +64,27 @@ int main(int argc, char** argv)
 	else
 		std::cout << "GLEW Initialization" << std::endl;
 
-	GLuint vert = MakeVertexShaders("vert.glsl");
+	GLuint vert = MakeVertexShaders("vert_1-14.glsl");
 	GLuint frag = MakeFragmentShaders("frag.glsl");
 	shaderProgramID = MakeShaderProgram(vert, frag);
 	glUseProgram(shaderProgramID);
 
-	meshSphere.LoadFromFile("sphere.obj");
+	tr[0].scale = glm::vec3(10.0f, 0.1f, 10.0f);
+	tr[1].position = glm::vec3(0.0f, 0.15f, 0.0f);
+	tr[1].scale = glm::vec3(0.5f, 0.3f, 0.5f);
+	tr[2].position = glm::vec3(0.0f, 0.3f, 0.0f);
+	tr[2].scale = glm::vec3(0.3f, 0.3f, 0.3f);
+	tr[3].position = glm::vec3(-0.15f, 0.5f, 0.0f);
+	tr[3].scale = glm::vec3(0.1f, 0.3f, 0.1f);
+	tr[4].position = glm::vec3(0.15f, 0.5f, 0.0f);
+	tr[4].scale = glm::vec3(0.1f, 0.3f, 0.1f);
+	tr[5].position = glm::vec3(-0.25f, 0.1f, 0.3f);
+	tr[5].scale = glm::vec3(0.1f, 0.1f, 0.3f);
+	tr[6].position = glm::vec3(0.25f, 0.1f, 0.3f);
+	tr[6].scale = glm::vec3(0.1f, 0.1f, 0.3f);
+
 	LoadPolygon("");
 	InitBuffer();
-
-	for (int i = 0; i < 3; ++i)
-	{
-		transformStar[i].position = glm::vec3(0.0f, 0.0f, 0.0f);
-		transformStar[i].scale = glm::vec3(0.1f);
-		transformPlanet[i].position = glm::vec3(5.0f, 0.0f, 0.0f);
-		transformPlanet[i].scale = glm::vec3(0.5f);
-		transformMoon[i].position = glm::vec3(3.0f, 0.0f, 0.0f);
-		transformMoon[i].scale = glm::vec3(0.5f);
-	}
-
-	transformGlobal.position = glm::vec3(0.0f, 0.0f, -1.0f);
-	transformGlobal.rotation = glm::vec3(45.0f, 45.0f, 0.0f);
-	transformStar[0].rotation = glm::vec3(-60.0f, 0.0f, 0.0f);
-	transformStar[1].rotation = glm::vec3(0.0f, 120.0f, 0.0f);
-	transformStar[2].rotation = glm::vec3(60.0f, 240.0f, 0.0f);
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -136,7 +102,7 @@ GLvoid drawScene()
 {
 	clock_t c = clock();
 
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.125f, 0.125f, 0.125f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(shaderProgramID);
 
@@ -145,65 +111,41 @@ GLvoid drawScene()
 	else
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-	glm::mat4 proj = projPerspective + (projOrthographic - projPerspective) * projFactor;
+	unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
 
-	unsigned int modelLocationWorld = glGetUniformLocation(shaderProgramID, "model_Transform");
-	unsigned int modelLocationColor = glGetUniformLocation(shaderProgramID, "model_Color");
-
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < 7; ++i)
 	{
-		glm::mat4 matrixPlanetXZ = proj * GetMatrix(transformGlobal)
-			* glm::translate(glm::mat4(1.0f), glm::vec3(-0.5f, 0.0f, 0.0f))
-			* glm::translate(glm::mat4(1.0f), glm::vec3(GetRotationMatrix(transformStar[i]) * glm::vec4(0.5f, 0.0f, 0.0f, 1.0f)))
-			* glm::scale(glm::mat4(1.0f), transformStar[i].scale)
-			* GetMatrix(transformPlanet[i]);
-		glm::mat4 matrixStar = proj * GetMatrix(transformGlobal) * GetMatrix(transformStar[i]);
-		if (i == 0)
+		glm::mat4 transform = glm::mat4(1.0f);
+
+		for (int ti = i; ti >= 0; ti = parent[ti])
 		{
-			glUniformMatrix4fv(modelLocationWorld, 1, GL_FALSE, glm::value_ptr(glm::mat4(matrixStar)));
-			glUniform3fv(modelLocationColor, 1, glm::value_ptr(glm::vec3(1.0f, 0.0f, 0.0f)));
-			meshSphere.Draw(GL_TRIANGLES);
+			glm::mat4 t = glm::translate(glm::mat4(1.0f), tr[ti].position);
+			glm::mat4 r = glm::mat4(1.0f);
+			r = glm::rotate(r, glm::radians(tr[ti].rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+			r = glm::rotate(r, glm::radians(tr[ti].rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+			r = glm::rotate(r, glm::radians(tr[ti].rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+			glm::mat4 s = glm::scale(glm::mat4(1.0f), tr[ti].scale);
+			transform = t * r * s * transform;
 		}
 
-		glm::mat4 matrixPlanet = matrixPlanetXZ;
-		glUniformMatrix4fv(modelLocationWorld, 1, GL_FALSE, glm::value_ptr(glm::mat4(matrixPlanet)));
-		glUniform3fv(modelLocationColor, 1, glm::value_ptr(glm::vec3(0.0f, 1.0f, 0.0f)));
-		meshSphere.Draw(GL_TRIANGLES);
-		glUniformMatrix4fv(modelLocationWorld, 1, GL_FALSE, glm::value_ptr(glm::mat4(matrixStar) * glm::scale(glm::mat4(1.0f), glm::vec3(glm::length(transformPlanet[i].position)))));
-		meshRing.Draw(GL_LINE_STRIP);
+		transform = projPerspective * glm::lookAt(glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * transform;
 
-		glm::mat4 matrixMoon = matrixPlanetXZ * GetMatrix(transformMoon[i]);
-
-		glUniformMatrix4fv(modelLocationWorld, 1, GL_FALSE, glm::value_ptr(glm::mat4(matrixMoon)));
-		glUniform3fv(modelLocationColor, 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 1.0f)));
-		meshSphere.Draw(GL_TRIANGLES);
-		glUniformMatrix4fv(modelLocationWorld, 1, GL_FALSE, glm::value_ptr(glm::mat4(matrixPlanet) * glm::scale(glm::mat4(1.0f), glm::vec3(glm::length(transformMoon[i].position)))));
-		meshRing.Draw(GL_LINE_STRIP);
+		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
+		mesh.Draw(GL_TRIANGLES);
 	}
 
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glUseProgram(shaderProgramID);
 
 	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 1.0f);
-
-	glUniformMatrix4fv(modelLocationWorld, 1, GL_FALSE, glm::value_ptr(projOrthographic * GetMatrix(transformGlobal)));
-	// meshGizmo.Draw(GL_LINES);
+	meshGizmo.Draw(GL_LINES);
 
 	glutSwapBuffers();
 }
 
 GLvoid Timer()
 {
-	float dt = 0.01f;
-	projFactor = projFactor + ((projFlag ? 1.0f : 0.0f) - projFactor) * dt;
 
-	for (int i = 0; i < 3; ++i)
-	{
-		transformStar[i].rotation.y += rotateX;
-		transformStar[i].rotation.x += rotateY;
-		transformPlanet[i].rotation.y += rotateX;
-		transformMoon[i].rotation.y += rotateX;
-	}
 
 #ifdef _DEBUG
 	constexpr int REFRESH_RATE = 20;
@@ -229,7 +171,7 @@ GLvoid Reshape(int w, int h)
 {
 	aspect = (GLfloat)w / h;
 
-	projPerspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 100.0f);
+	projPerspective = glm::perspective(glm::radians(90.0f), aspect, 0.1f, 100.0f);
 	projOrthographic = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -2.0f, 2.0f);
 
 	glViewport(0, 0, w, h);
@@ -237,13 +179,23 @@ GLvoid Reshape(int w, int h)
 
 GLvoid LoadPolygon(const char* fileName)
 {
-	for (int i = 0; i <= 100; ++i)
+	for (int i = 0; i < 8; ++i)
 	{
-		float theta = static_cast<float>(i) / 50.0f * glm::pi<float>();
-		meshRing.AppendVertex(glm::vec3(glm::cos(theta), 0.0f, glm::sin(theta)));
-		meshRing.AppendColor(glm::vec3(1.0f, 1.0f, 1.0f));
-		meshRing.AppendIndex(i);
+		mesh.AppendVertex(glm::vec3(i % 2 - 0.5f, i / 2 % 2 - 0.5f, i / 4 % 2 - 0.5f));
+		mesh.AppendColor(glm::vec3(i % 2, i / 2 % 2, i / 4 % 2));
 	}
+	mesh.AppendIndex(0, 1, 4);
+	mesh.AppendIndex(5, 4, 1);
+	mesh.AppendIndex(2, 6, 3);
+	mesh.AppendIndex(7, 3, 6);
+	mesh.AppendIndex(0, 2, 1);
+	mesh.AppendIndex(3, 1, 2);
+	mesh.AppendIndex(5, 7, 4);
+	mesh.AppendIndex(6, 4, 7);
+	mesh.AppendIndex(4, 6, 0);
+	mesh.AppendIndex(2, 0, 6);
+	mesh.AppendIndex(1, 3, 5);
+	mesh.AppendIndex(7, 5, 3);
 
 	meshGizmo.AppendVertex(glm::vec3(-1.0f, 0.0f, 0.0f));
 	meshGizmo.AppendVertex(glm::vec3(1.0f, 0.0f, 0.0f));
@@ -269,8 +221,7 @@ GLvoid LoadPolygon(const char* fileName)
 
 GLvoid InitBuffer()
 {
-	meshSphere.MakeArrayBuffers();
-	meshRing.MakeArrayBuffers();
+	mesh.MakeArrayBuffers();
 	meshGizmo.MakeArrayBuffers();
 }
 
@@ -364,48 +315,56 @@ char* FileToBuffer(const char* file)
 
 GLvoid Keyboard(unsigned char key, int x, int y)
 {
-	switch (toupper(key))
+	bool upper = isupper(key);
+	switch (key)
 	{
 		break;
-	case 'H':
+	case 'h':
 		depthTest = !depthTest;
 		(depthTest ? glEnable : glDisable)(GL_DEPTH_TEST);
 		break;
-	case 'M':
+	case 'w':
 		drawMode = !drawMode;
 		break;
-	case 'W':
-		transformGlobal.position.y += 0.1f;
+	case 'b':
+	case 'B':
 		break;
+	case 'm':
+	case 'M':
+		break;
+	case 'f':
+	case 'F':
+		break;
+	case 'e':
+	case 'E':
+		break;
+	case 't':
+	case 'T':
+		break;
+	case 'z':
+	case 'Z':
+		break;
+	case 'x':
+	case 'X':
+		break;
+	case 'y':
+	case 'Y':
+		break;
+	case 'r':
+	case 'R':
+		break;
+	case 'a':
 	case 'A':
-		transformGlobal.position.x -= 0.1f;
 		break;
+	case 's':
 	case 'S':
-		transformGlobal.position.y -= 0.1f;
 		break;
-	case 'D':
-		transformGlobal.position.x += 0.1f;
+	case 'c':
+	case 'C':
 		break;
-	case '+':
-		transformGlobal.position.z += 0.1f;
-		break;
-	case '-':
-		transformGlobal.position.z -= 0.1f;
-		break;
-	case '1':
-		rotateX = 0.1f;
-		break;
-	case '2':
-		rotateX = -0.1f;
-		break;
-	case '3':
-		rotateY = 0.05f;
-		break;
-	case '4':
-		rotateY = -0.05f;
-		break;
-	case 'P':
-		projFlag = !projFlag;
+	case 'q':
+	case 'Q':
+		glutDestroyWindow(win_id);
 		break;
 	}
 }

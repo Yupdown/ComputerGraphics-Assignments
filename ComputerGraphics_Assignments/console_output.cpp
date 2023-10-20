@@ -4,8 +4,8 @@
 std::string windowTitle = "OpenGLExperiment";
 
 constexpr char GREY_LEVEL[] = R"( .:-=+%*@#)";
-constexpr int SCREEN_WIDTH = 128;
-constexpr int SCREEN_HEIGHT = 128;
+constexpr int SCREEN_WIDTH = 100;
+constexpr int SCREEN_HEIGHT = 100;
 
 glm::vec4 valueBuffer[SCREEN_WIDTH][SCREEN_HEIGHT];
 float depthBuffer[SCREEN_WIDTH][SCREEN_HEIGHT];
@@ -47,7 +47,7 @@ public:
 
 	glm::vec4 FragmentShader(const Data& in)
 	{
-		return glm::vec4(glm::vec3(in.color), in.normal.y * 0.5f + 0.5f);
+		return glm::vec4(glm::vec3(in.color), in.normal.z * 0.5f + 0.5f);
 	}
 };
 
@@ -211,6 +211,18 @@ GLvoid DrawScene()
 		}
 		textBuffer[y * (SCREEN_WIDTH + 1) + SCREEN_WIDTH] = y + 1 < SCREEN_HEIGHT ? '\n' : '\0';
 	}
+
+	glm::vec4 offset = glm::vec4(0.8f, 0.5f, 0.0f, 1.0f);
+	glm::vec4 textPos = program->projectTransform * t * s * offset;
+	if (textPos.w != 0.0f)
+		textPos /= textPos.w;
+	textPos = viewportTransform * textPos;
+
+	int tx = static_cast<int>(glm::iround(textPos.x));
+	int ty = static_cast<int>(glm::iround(textPos.y));
+
+	const char* src = "<- Name: Yup";
+	strncpy(textBuffer + (tx + ty * (SCREEN_WIDTH + 1)), src, strlen(src));
 
 	// draw onto the screen from the text
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { 0, 0 });
