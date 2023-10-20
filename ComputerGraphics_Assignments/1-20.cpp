@@ -31,18 +31,76 @@ bool depthTest = true;
 float oTranslatonXSpeed = 0.0f;
 float oRotationYSpeed = 0.0f;
 
+float ffactor = 0.0f;
+float fspeed = 0.0f;
+
+float efactor = 0.0f;
+float espeed = 0.0f;
+
+float tfactor = 0.0f;
+float tspeed = 0.0f;
+
+float aspeed = 0.0f;
+
+glm::vec3 camPos = glm::vec3(1.0f, 1.0f, 1.0f);
+glm::mat4 localview = glm::mat4(1.0f);
+
 struct Transform
 {
 	glm::vec3 position;
 	glm::vec3 rotation;
 	glm::vec3 scale;
+
+	Transform()
+	{
+		position = glm::vec3(0.0f, 0.0f, 0.0f);
+		rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		scale = glm::vec3(1.0f, 1.0f, 1.0f);
+	}
 };
 
-Transform tr[9];
-int parent[9] = {-1, 7, 7, 7, 7, 7, 7, 8, -1};
+glm::mat4 GetMatrix(const Transform& transform)
+{
+	glm::mat4 t = glm::translate(glm::mat4(1.0f), transform.position);
+	glm::mat4 r = glm::mat4(1.0f);
+	r = glm::rotate(r, glm::radians(transform.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+	r = glm::rotate(r, glm::radians(transform.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+	r = glm::rotate(r, glm::radians(transform.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+	glm::mat4 s = glm::scale(glm::mat4(1.0f), transform.scale);
+
+	return t * r * s;
+}
+
+Transform tr[13];
+int parent[13] = {-1, 8, 7, 9, 10, 11, 12, 8, -1, 7, 7, 8, 8 };
 
 glm::mat4 projPerspective = glm::mat4(1.0f);
 glm::mat4 projOrthographic = glm::mat4(1.0f);
+
+void InitTransform()
+{
+	tr[0].scale = glm::vec3(10.0f, 0.1f, 10.0f);
+	tr[1].position = glm::vec3(0.0f, 0.15f, 0.0f);
+	tr[1].scale = glm::vec3(0.5f, 0.3f, 0.5f);
+	tr[2].position = glm::vec3(0.0f, 0.3f, 0.0f);
+	tr[2].scale = glm::vec3(0.3f, 0.3f, 0.3f);
+
+	tr[3].position = glm::vec3(0.0f, 0.15f, 0.0f);
+	tr[3].scale = glm::vec3(0.1f, 0.3f, 0.1f);
+	tr[4].position = glm::vec3(0.0f, 0.15f, 0.0f);
+	tr[4].scale = glm::vec3(0.1f, 0.3f, 0.1f);
+
+	tr[5].position = glm::vec3(0.0f, 0.0f, 0.15f);
+	tr[5].scale = glm::vec3(0.1f, 0.1f, 0.3f);
+	tr[6].position = glm::vec3(0.0f, 0.0f, 0.15f);
+	tr[6].scale = glm::vec3(0.1f, 0.1f, 0.3f);
+
+	tr[11].position = glm::vec3(-0.25f, 0.1f, 0.15f);
+	tr[12].position = glm::vec3(0.25f, 0.1f, 0.15f);
+
+	tr[7].rotation.y = 0.0f;
+	tr[8].position.x = 0.0f;
+}
 
 int main(int argc, char** argv)
 {
@@ -52,7 +110,7 @@ int main(int argc, char** argv)
 	glutInitWindowPosition(100, 100);
 	glutInitWindowSize(640, 480);
 
-	glutCreateWindow(windowTitle.c_str());
+	win_id = glutCreateWindow(windowTitle.c_str());
 	// glutFullScreen();
 
 	glewExperimental = GL_TRUE;
@@ -69,20 +127,7 @@ int main(int argc, char** argv)
 	shaderProgramID = MakeShaderProgram(vert, frag);
 	glUseProgram(shaderProgramID);
 
-	tr[0].scale = glm::vec3(10.0f, 0.1f, 10.0f);
-	tr[1].position = glm::vec3(0.0f, 0.15f, 0.0f);
-	tr[1].scale = glm::vec3(0.5f, 0.3f, 0.5f);
-	tr[2].position = glm::vec3(0.0f, 0.3f, 0.0f);
-	tr[2].scale = glm::vec3(0.3f, 0.3f, 0.3f);
-	tr[3].position = glm::vec3(-0.15f, 0.5f, 0.0f);
-	tr[3].scale = glm::vec3(0.1f, 0.3f, 0.1f);
-	tr[4].position = glm::vec3(0.15f, 0.5f, 0.0f);
-	tr[4].scale = glm::vec3(0.1f, 0.3f, 0.1f);
-	tr[5].position = glm::vec3(-0.25f, 0.1f, 0.3f);
-	tr[5].scale = glm::vec3(0.1f, 0.1f, 0.3f);
-	tr[6].position = glm::vec3(0.25f, 0.1f, 0.3f);
-	tr[6].scale = glm::vec3(0.1f, 0.1f, 0.3f);
-
+	InitTransform();
 	LoadPolygon("");
 	InitBuffer();
 
@@ -113,22 +158,16 @@ GLvoid drawScene()
 
 	unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "model_Transform");
 
+	glm::mat4 viewMat = glm::lookAt(camPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
 	for (int i = 0; i < 7; ++i)
 	{
 		glm::mat4 transform = glm::mat4(1.0f);
 
 		for (int ti = i; ti >= 0; ti = parent[ti])
-		{
-			glm::mat4 t = glm::translate(glm::mat4(1.0f), tr[ti].position);
-			glm::mat4 r = glm::mat4(1.0f);
-			r = glm::rotate(r, glm::radians(tr[ti].rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-			r = glm::rotate(r, glm::radians(tr[ti].rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-			r = glm::rotate(r, glm::radians(tr[ti].rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-			glm::mat4 s = glm::scale(glm::mat4(1.0f), tr[ti].scale);
-			transform = t * r * s * transform;
-		}
+			transform = GetMatrix(tr[ti]) * transform;
 
-		transform = projPerspective * glm::lookAt(glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)) * transform;
+		transform = projPerspective * localview * viewMat * transform;
 
 		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
 		mesh.Draw(GL_TRIANGLES);
@@ -138,6 +177,8 @@ GLvoid drawScene()
 	glUseProgram(shaderProgramID);
 
 	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 1.0f);
+
+	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(projOrthographic * localview * viewMat * s));
 	meshGizmo.Draw(GL_LINES);
 
 	glutSwapBuffers();
@@ -145,7 +186,28 @@ GLvoid drawScene()
 
 GLvoid Timer()
 {
+	static clock_t lt;
+	clock_t t = clock();
+	float dt = static_cast<float>(lt - t) * 0.001f;
+	lt = t;
 
+	tr[7].rotation.y += oRotationYSpeed * dt;
+	tr[8].position.x += oTranslatonXSpeed * dt;
+	
+	ffactor += fspeed * dt;
+	efactor += espeed * dt;
+	tfactor += tspeed * dt;
+
+	tr[11].rotation.y = glm::sin(ffactor) * 30.0f;
+	tr[12].rotation.y = glm::sin(ffactor) * -30.0f;
+
+	tr[9].rotation.x = glm::sin(tfactor) * 90.0f;
+	tr[10].rotation.x = glm::sin(tfactor) * -90.0f;
+
+	tr[9].position = glm::vec3(glm::cos(efactor) * 0.15f, 0.35f, 0.0f);
+	tr[10].position = glm::vec3(glm::cos(efactor) * -0.15f, 0.35f, 0.0f);
+
+	camPos = glm::rotate(glm::mat4(1.0f), aspeed * dt, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(camPos, 1.0f);
 
 #ifdef _DEBUG
 	constexpr int REFRESH_RATE = 20;
@@ -328,43 +390,86 @@ GLvoid Keyboard(unsigned char key, int x, int y)
 		break;
 	case 'b':
 	case 'B':
+		if (oTranslatonXSpeed == 0.0f)
+			oTranslatonXSpeed = upper ? -1.0f : 1.0f;
+		else
+			oTranslatonXSpeed = 0.0f;
 		break;
 	case 'm':
 	case 'M':
+		if (oRotationYSpeed == 0.0f)
+			oRotationYSpeed = upper ? -360.0f : 360.0f;
+		else
+			oRotationYSpeed = 0.0f;
 		break;
 	case 'f':
 	case 'F':
+		if (fspeed == 0.0f)
+			fspeed = upper ? 4.0f : -4.0f;
+		else
+			fspeed = 0.0f;
 		break;
 	case 'e':
 	case 'E':
+		if (espeed == 0.0f)
+		{
+			tspeed = 0.0f;
+			tfactor = 0.0f;
+			espeed = upper ? 4.0f : -4.0f;
+		}
+		else
+			espeed = 0.0f;
 		break;
 	case 't':
 	case 'T':
+		if (tspeed == 0.0f && espeed == 0.0f)
+			tspeed = upper ? 4.0f : -4.0f;
+		else
+			tspeed = 0.0f;
 		break;
 	case 'z':
 	case 'Z':
+		camPos.z += upper ? -0.2f : 0.2f;
 		break;
 	case 'x':
 	case 'X':
+		camPos.x += upper ? -0.2f : 0.2f;
 		break;
 	case 'y':
 	case 'Y':
+		camPos = glm::rotate(glm::mat4(1.0f), upper ? -0.1f : 0.1f, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(camPos, 1.0f);
 		break;
 	case 'r':
 	case 'R':
+		localview = glm::rotate(localview, upper ? -0.1f : 0.1f, glm::vec3(0.0f, 1.0f, 0.0f));
 		break;
 	case 'a':
 	case 'A':
-		break;
-	case 's':
-	case 'S':
+		if (aspeed == 0.0f)
+			aspeed = upper ? 1.0f : -1.0f;
+		else
+			aspeed = 0.0f;
 		break;
 	case 'c':
 	case 'C':
+		camPos = glm::vec3(1.0f, 1.0f, 1.0f);
+		localview = glm::mat4(1.0f);
+		InitTransform();
+		ffactor = 0.0f;
+		efactor = 0.0f;
+		tfactor = 0.0f;
+	case 's':
+	case 'S':
+		oTranslatonXSpeed = 0.0f;
+		oRotationYSpeed = 0.0f;
+		fspeed = 0.0f;
+		espeed = 0.0f;
+		tspeed = 0.0f;
+		aspeed = 0.0f;
 		break;
 	case 'q':
 	case 'Q':
 		glutDestroyWindow(win_id);
-		break;
+		return;
 	}
 }
