@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Mesh.hpp"
 
+Mesh meshCylinder;
 Mesh mesh;
 Mesh meshGizmo;
 
@@ -18,6 +19,8 @@ GLvoid Keyboard(unsigned char key, int x, int y);
 GLvoid Reshape(int w, int h);
 GLvoid Timer();
 
+void SimulatePlayer(float dt);
+
 char* FileToBuffer(const char* file);
 
 GLuint shaderProgramID;
@@ -25,11 +28,10 @@ GLfloat aspect = 1.0f;
 
 int win_id;
 
-bool drawMode = false;
-bool depthTest = true;
+float openTime = 0.0f;
+float elapsedTime = 0.0f;
 
-glm::vec3 camPos = glm::vec3(1.0f, 1.0f, 1.0f);
-glm::mat4 localview = glm::mat4(1.0f);
+glm::vec3 camPos = glm::vec3(0.0f, 0.0f, 8.0f);
 
 int sw, sh;
 
@@ -59,8 +61,17 @@ glm::mat4 GetMatrix(const Transform& transform)
 	return t * r * s;
 }
 
+glm::vec3 velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 moveDir = glm::vec3(0.0f);
+float speed = 4.0f;
+
+Transform trc;
 Transform tr[11];
 int parent[11] = { -1, 0, 0, 7, 8, 9, 10, 0, 0, 0, 0 };
+
+Transform obstacles[3];
+Transform trw[9];
+
 float animFactor = 0.0f;
 
 glm::mat4 projPerspective = glm::mat4(1.0f);
@@ -68,6 +79,16 @@ glm::mat4 projOrthographic = glm::mat4(1.0f);
 
 void InitTransform()
 {
+	trc.position = glm::vec3(0.0f);
+	moveDir = glm::normalize(glm::vec3(1.0f, 0.0f, 0.3f));
+
+	obstacles[0].position = glm::vec3(1.0f, -4.0f, 2.0f);
+	obstacles[1].position = glm::vec3(-3.0f, -4.0f, 1.0f);
+	obstacles[2].position = glm::vec3(2.0f, -4.0f, -2.0f);
+	obstacles[0].scale = glm::vec3(2.0f, 1.0f, 2.0f);
+	obstacles[1].scale = glm::vec3(2.0f, 1.0f, 2.0f);
+	obstacles[2].scale = glm::vec3(2.0f, 1.0f, 2.0f);
+
 	tr[0].scale = glm::vec3(0.5f, 0.5f, 0.5f);
 	tr[1].position = glm::vec3(0.0f, 0.75f * 1.5f, 0.0f);
 	tr[1].scale = glm::vec3(0.5f, 0.75f, 0.25f);
@@ -85,6 +106,28 @@ void InitTransform()
 	tr[8].position = glm::vec3(0.25f, 1.5f, 0.0f);
 	tr[9].position = glm::vec3(-0.25f * 0.5f, 0.75f, 0.0f);
 	tr[10].position = glm::vec3(0.25f * 0.5f, 0.75f, 0.0f);
+
+	trw[0].position = glm::vec3(-1.0f, 0.0f, 3.9f);
+	trw[1].position = glm::vec3(1.0f, 0.0f, 3.9f);
+	trw[2].position = glm::vec3(-3.0f, 0.0f, 4.0f);
+	trw[3].position = glm::vec3(3.0f, 0.0f, 4.0f);
+
+	trw[4].position = glm::vec3(0.0f, 0.0f, -4.0f);
+	trw[5].position = glm::vec3(0.0f, 4.0f, 0.0f);
+	trw[6].position = glm::vec3(0.0f, -4.0f, 0.0f);
+	trw[7].position = glm::vec3(4.0f, 0.0f, 0.0f);
+	trw[8].position = glm::vec3(-4.0f, 0.0f, 0.0f);
+
+	trw[0].scale = glm::vec3(2.0f, 8.0f, 0.1f);
+	trw[1].scale = glm::vec3(2.0f, 8.0f, 0.1f);
+	trw[2].scale = glm::vec3(2.0f, 8.0f, 0.1f);
+	trw[3].scale = glm::vec3(2.0f, 8.0f, 0.1f);
+
+	trw[4].scale = glm::vec3(8.0f, 8.0f, 0.1f);
+	trw[5].scale = glm::vec3(8.0f, 0.1f, 8.0f);
+	trw[6].scale = glm::vec3(8.0f, 0.1f, 8.0f);
+	trw[7].scale = glm::vec3(0.1f, 8.0f, 8.0f);
+	trw[8].scale = glm::vec3(0.1f, 8.0f, 8.0f);
 }
 
 int main(int argc, char** argv)
@@ -154,8 +197,8 @@ GLvoid drawViewport(int x, int y, int w, int h, int c)
 		break;
 	}
 
-	glm::mat4 viewPersp = projPerspective * localview * viewMat;
-	glm::mat4 viewOrtho = projOrthographic * localview * viewMat;
+	glm::mat4 viewPersp = projPerspective * viewMat;
+	glm::mat4 viewOrtho = projOrthographic * viewMat;
 
 	for (int i = 1; i < 7; ++i)
 	{
@@ -163,11 +206,32 @@ GLvoid drawViewport(int x, int y, int w, int h, int c)
 
 		for (int ti = i; ti >= 0; ti = parent[ti])
 			transform = GetMatrix(tr[ti]) * transform;
+		transform = GetMatrix(trc) * transform;
 
 		transform = (c ? viewOrtho : viewPersp) * transform;
 
 		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
 		mesh.Draw(GL_TRIANGLES);
+	}
+
+	for (int i = 0; i < 9; ++i)
+	{
+		glm::mat4 transform = GetMatrix(trw[i]);
+
+		transform = (c ? viewOrtho : viewPersp) * transform;
+
+		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
+		mesh.Draw(GL_TRIANGLES);
+	}
+
+	for (int i = 0; i < 3; ++i)
+	{
+		glm::mat4 transform = GetMatrix(obstacles[i]);
+
+		transform = (c ? viewOrtho : viewPersp) * transform;
+
+		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(transform));
+		meshCylinder.Draw(GL_TRIANGLES);
 	}
 
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -186,34 +250,36 @@ GLvoid drawScene()
 
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	if (drawMode)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	else
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
 	drawViewport(0, 0, sw, sh, 0);
-	drawViewport(0, 0, 480, 360, 1);
-	drawViewport(sw - 480, 0, 480, 360, 2);
-
 	glutSwapBuffers();
 }
 
 GLvoid Timer()
 {
-	static clock_t lt;
+	float lastTime = elapsedTime;
 	clock_t t = clock();
-	float dt = static_cast<float>(lt - t) * 0.001f;
-	float ft = static_cast<float>(t) * 0.001f;
-	lt = t;
+	elapsedTime = static_cast<float>(t) * 0.001f;
+	float dt = elapsedTime - lastTime;
 
-	animFactor = glm::sin(ft * 10.0f);
+	animFactor = glm::sin(elapsedTime * 10.0f);
 
-	tr[7].rotation.x = animFactor * -90.0f;
-	tr[8].rotation.x = animFactor * 90.0f;
-	tr[9].rotation.x = animFactor * 60.0f;
-	tr[10].rotation.x = animFactor * -60.0f;
+	if (openTime > 0.0f)
+	{
+		float openFactor = (1.0f - glm::cos(glm::clamp(elapsedTime - openTime, 0.0f, 1.0f) * glm::pi<float>())) * 0.5f;
+		trw[0].position.x = -1.0f - 4.0f * openFactor;
+		trw[1].position.x = 1.0f + 4.0f * openFactor;
+		trw[2].position.x = -3.0f - 2.0f * openFactor;
+		trw[3].position.x = 3.0f + 2.0f * openFactor;
+	}
+
+	tr[7].rotation.x = animFactor * -16.0f * speed;
+	tr[8].rotation.x = animFactor * 16.0f * speed;
+	tr[9].rotation.x = animFactor * 12.0f * speed;
+	tr[10].rotation.x = animFactor * -12.0f * speed;
 
 	camPos = glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(camPos, 1.0f);
+
+	SimulatePlayer(dt);
 
 #ifdef _DEBUG
 	constexpr int REFRESH_RATE = 20;
@@ -245,6 +311,7 @@ GLvoid Reshape(int w, int h)
 
 GLvoid LoadPolygon(const char* fileName)
 {
+	meshCylinder.LoadFromFile("cylinder.obj");
 	for (int i = 0; i < 8; ++i)
 	{
 		mesh.AppendVertex(glm::vec3(i % 2 - 0.5f, i / 2 % 2 - 0.5f, i / 4 % 2 - 0.5f));
@@ -289,6 +356,7 @@ GLvoid InitBuffer()
 {
 	mesh.MakeArrayBuffers();
 	meshGizmo.MakeArrayBuffers();
+	meshCylinder.MakeArrayBuffers();
 }
 
 GLuint MakeVertexShaders(const char* fileName)
@@ -386,16 +454,36 @@ GLvoid Keyboard(unsigned char key, int x, int y)
 	{
 	case 'w':
 	case 'W':
+		moveDir = glm::vec3(0.0f, 0.0f, -1.0f);
+		break;
+	case 'a':
+	case 'A':
+		moveDir = glm::vec3(-1.0f, 0.0f, 0.0f);
+		break;
+	case 's':
+	case 'S':
+		moveDir = glm::vec3(0.0f, 0.0f, 1.0f);
+		break;
+	case 'd':
+	case 'D':
+		moveDir = glm::vec3(1.0f, 0.0f, 0.0f);
 		break;
 	case '+':
+		speed += 1.0f;
 		break;
 	case '-':
+		speed = glm::max(speed - 1.0f, 1.0f);
 		break;
 	case 'j':
 	case 'J':
+		velocity.y = 10.0f;
 		break;
 	case 'i':
 	case 'I':
+		InitTransform();
+		speed = 4.0f;
+		openTime = 0.0f;
+		camPos = glm::vec3(0.0f, 0.0f, 8.0f);
 		break;
 	case 'z':
 	case 'Z':
@@ -413,5 +501,80 @@ GLvoid Keyboard(unsigned char key, int x, int y)
 	case 'Q':
 		glutDestroyWindow(win_id);
 		return;
+	default:
+		openTime = elapsedTime;
+		break;
 	}
+}
+
+float LerpAngle(float a, float b, float t)
+{
+	float da = fmod(b - a, 360.0f);
+	return  a + (fmod(da * 2.0f, 360.0f) - da) * t;
+}
+
+void SimulatePlayer(float dt)
+{
+	static float lastAngle = 0.0f;
+	velocity.x = moveDir.x * speed;
+	velocity.y += -40.0f * dt;
+	velocity.z = moveDir.z * speed;
+
+	glm::vec3 p = trc.position + velocity * dt;
+	
+	if (p.x < -4.0f)
+	{
+		moveDir.x = -moveDir.x;
+		p.x = -8.0f - p.x;
+	}
+	else if (p.x > 4.0f)
+	{
+		moveDir.x = -moveDir.x;
+		p.x = 8.0f - p.x;
+	}
+	if (p.z < -4.0f)
+	{
+		moveDir.z = -moveDir.z;
+		p.z = -8.0f - p.z;
+	}
+	else if (p.z > 4.0f)
+	{
+		moveDir.z = -moveDir.z;
+		p.z = 8.0f - p.z;
+	}
+	if (p.y < -4.0f)
+	{
+		velocity.y = 0.0f;
+		p.y = -4.0f;
+	}
+
+	for (int i = 0; i < 3; ++i)
+	{
+		glm::vec3 o = obstacles[i].position;
+		float dist = glm::distance(glm::vec2(p.x, p.z), glm::vec2(o.x, o.z));
+		if (dist < 1.0f)
+		{
+			if (trc.position.y >= -3.0f)
+			{
+				if (p.y < -3.0f)
+				{
+					velocity.y = 0.0f;
+					p.y = -3.0f;
+				}
+			}
+			else
+			{
+				glm::vec2 l = glm::vec2(-moveDir.x, -moveDir.z);
+				glm::vec2 n = glm::normalize(glm::vec2(p.x, p.z) - glm::vec2(o.x, o.z));
+				glm::vec2 r = n * 2.0f * glm::dot(n, l) - l;
+				moveDir.x = r.x;
+				moveDir.z = r.y;
+			}
+		}
+	}
+
+	trc.position = p;
+	float targetAngle = -atan2f(moveDir.z, moveDir.x) * 180.0f / glm::pi<float>() + 90.0f;
+	lastAngle = LerpAngle(lastAngle, targetAngle, dt * 10.0f);
+	trc.rotation.y = lastAngle;
 }
