@@ -111,6 +111,12 @@
     <ClCompile Include="1-21.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="1-22.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="1-23.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OBJ_Loader.h">
