@@ -18,5 +18,5 @@ out vec3 vert_Color;
 void main()
 {
 	gl_Position = proj_Transform * view_Transform * model_Transform * vec4(in_Position, 1.0f);
-	vert_Color = in_Normal;
+	vert_Color = (in_Normal + 1.0f) * 0.5f;
 } 
