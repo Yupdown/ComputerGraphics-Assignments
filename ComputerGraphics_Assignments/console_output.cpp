@@ -47,7 +47,7 @@ public:
 
 	glm::vec4 FragmentShader(const Data& in)
 	{
-		return glm::vec4(glm::vec3(in.color), in.normal.z * 0.5f + 0.5f);
+		return glm::vec4(glm::vec3(in.color), 1.0f);
 	}
 };
 
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
 	viewportTransform[3][0] = SCREEN_WIDTH * 0.5f;
 	viewportTransform[3][1] = SCREEN_HEIGHT * 0.5f;
 
-	LoadPolygon("yup_optimized.obj");
+	LoadPolygon("resource/mesh/yup_optimized.obj");
 
 	while (true)
 	{
