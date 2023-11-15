@@ -31,6 +31,6 @@ void main()
 	specular_Light = pow(specular_Light, shiny);
 	vec3 specular = specular_Color * specular_Light;
 
-	vec3 color = (ambient + diffuse + specular) * vert_Color;
+	vec3 color = (ambient + diffuse + specular) * (vert_Color + vert_Position);
 	out_Color = vec4(color, 1.0);
 }

@@ -212,12 +212,12 @@ int main(int argc, char* argv)
 		players[i] = new ObjectPlayer();
 		players[i]->SetScale(Vector3(1.0f, 1.0f, 1.0f) * (float)glm::pow(0.8f, i));
 	}
-	scene->AddObject(players[0]);
+	scene->AddChild(players[0]);
 
 	for (int i = 0; i < 8; ++i)
 	{
 		walls[i] = new ObjectModel(meshCube.get(), shader.get());
-		scene->AddObject(walls[i]);
+		scene->AddChild(walls[i]);
 	}
 	moveDir = glm::normalize(glm::vec3(1.0f, 0.0f, 0.3f));
 
@@ -245,7 +245,7 @@ int main(int argc, char* argv)
 	{
 		cylinderObstacles[i] = new ObjectModel(meshCylinder.get(), shader.get());
 		cylinderObstacles[i]->SetScale(Vector3(1.0f, 8.0f, 1.0f));
-		scene->AddObject(cylinderObstacles[i]);
+		scene->AddChild(cylinderObstacles[i]);
 	}
 
 	cylinderObstacles[0]->SetPosition(Vector3(-3.0f, -4.0f, -3.0f));
@@ -257,7 +257,7 @@ int main(int argc, char* argv)
 	{
 		cylinderGate[i] = new ObjectModel(meshCylinder.get(), shader.get());
 		cylinderGate[i]->SetScale(Vector3(1.0f, 4.0f, 1.0f));
-		scene->AddObject(cylinderGate[i]);
+		scene->AddChild(cylinderGate[i]);
 	}
 
 	cylinderGate[0]->SetPosition(Vector3(-1.5f, -4.0f, 0.0f));
@@ -265,7 +265,7 @@ int main(int argc, char* argv)
 
 	ObjectModel* gateCeil = new ObjectModel(meshCube.get(), shader.get());
 	gateCeil->SetScale(Vector3(4.0f, 0.5f, 1.0f));
-	scene->AddObject(gateCeil);
+	scene->AddChild(gateCeil);
 
 	for (int i = 0; i < TILE_SIZE; ++i)
 	{
@@ -274,7 +274,7 @@ int main(int argc, char* argv)
 			floors[i][j] = new ObjectModel(meshCube.get(), shader.get());
 			floors[i][j]->SetPosition(Vector3(i - (TILE_SIZE - 1) * 0.5f, -4.0f - 0.5f, j - (TILE_SIZE - 1) * 0.5f));
 			floors[i][j]->SetRotation(Vector3((i + j) % 2 ? 0.0f : glm::pi<float>(), 0.0f, 0.0f));
-			scene->AddObject(floors[i][j]);
+			scene->AddChild(floors[i][j]);
 		}
 	}
 
@@ -325,7 +325,7 @@ void UpdateHandler()
 	if (Input::GetKeyDown('T'))
 	{
 		if (playerCount < 4)
-			scene->AddObject(players[playerCount++]);
+			scene->AddChild(players[playerCount++]);
 	}
 	if (Input::GetKeyDown('F'))
 	{

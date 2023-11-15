@@ -69,11 +69,11 @@ int main(int argc, char** argv)
 	{
 		boxes[i] = new ObjectModel(mesh, shader);
 		boxes[i]->SetScale(Vector3(1.0, 1.0f, 1.0f) * static_cast<float>(i + 1) * 0.5f);
-		mainScene->AddObject(boxes[i]);
+		mainScene->AddChild(boxes[i]);
 	}
 
 	axis = new Object();
-	mainScene->AddObject(axis);
+	mainScene->AddChild(axis);
 
 	box = new ObjectModel(meshBack, shader);
 	box->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
