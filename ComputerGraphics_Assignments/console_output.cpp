@@ -35,19 +35,44 @@ public:
 	glm::mat4 viewTransform;
 	glm::mat4 projectTransform;
 
+	glm::vec3 lightDirection;
+	glm::vec3 viewPosition;
+
+	glm::vec3 ambientColor;
+	glm::vec3 diffuseColor;
+	glm::vec3 specularColor;
+
 public:
 	Data VertexShader(const Data& in)
 	{
 		Data out;
 		out.position = projectTransform * viewTransform * worldTransform * in.position;
-		out.normal = in.normal;
+		out.normal = worldTransform * in.normal;
 		out.color = in.color;
 		return out;
 	}
 
 	glm::vec4 FragmentShader(const Data& in)
 	{
-		return glm::vec4(glm::vec3(in.color), 1.0f);
+		// return glm::vec4(glm::vec3(in.color), 1.0f);
+
+		glm::vec3 normal = glm::normalize(in.normal);
+		glm::vec3 view_Direction = glm::normalize(viewPosition - glm::vec3(in.position));
+
+		float ambient_Light = 1.0f;
+		glm::vec3 ambient = ambientColor * ambient_Light;
+
+		float diffuse_Light = glm::max(dot(normal, lightDirection), 0.0f);
+		glm::vec3 diffuse = diffuseColor * diffuse_Light;
+
+		float shiny = 256.0;
+		glm::vec3 reflect_Direction = reflect(-lightDirection, normal);
+		float specular_Light = glm::max(0.0f, dot(view_Direction, reflect_Direction));
+		specular_Light = pow(specular_Light, shiny);
+		glm::vec3 specular = specularColor * specular_Light;
+
+		glm::vec3 color = (ambient + diffuse + specular) * glm::vec3(in.color);
+		return glm::vec4(color, 1.0);
 	}
 };
 
@@ -79,6 +104,12 @@ int main(int argc, char** argv)
 	program->worldTransform = glm::identity<glm::mat4>();
 	program->viewTransform = glm::identity<glm::mat4>();
 	program->projectTransform = glm::identity<glm::mat4>();
+
+	program->lightDirection = glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f));
+	program->viewPosition = glm::vec3();
+	program->ambientColor = glm::vec3(0.2f, 0.2f, 0.2f);
+	program->diffuseColor = glm::vec3(0.6f, 0.6f, 0.6f);
+	program->specularColor = glm::vec3(1.0f, 1.0f, 1.0f);
 
 	viewportTransform = glm::identity<glm::mat4>();
 	viewportTransform[0][0] = SCREEN_WIDTH * 0.5f;
@@ -137,7 +168,7 @@ GLvoid DrawScene()
 			int vindex = INDEX_DATA[index + offset] * 3;
 			dataIn.position = glm::vec4(VERTEX_DATA[vindex], VERTEX_DATA[vindex + 1], VERTEX_DATA[vindex + 2], 1.0f);
 			dataIn.color = glm::vec4(1.0f);
-			dataIn.normal = glm::vec4(NORMAL_DATA[vindex], NORMAL_DATA[vindex + 1], NORMAL_DATA[vindex + 2], 1.0f);
+			dataIn.normal = glm::vec4(NORMAL_DATA[vindex], NORMAL_DATA[vindex + 1], NORMAL_DATA[vindex + 2], 0.0f);
 
 			vertexData[offset] = program->VertexShader(dataIn);
 			glm::vec4 vClip = vertexData[offset].position;
@@ -206,7 +237,7 @@ GLvoid DrawScene()
 		for (int x = 0; x < SCREEN_WIDTH; ++x)
 		{
 			glm::vec4 col = valueBuffer[x][y];
-			int value = glm::ceil(col.a * sizeof(GREY_LEVEL) - 2);
+			int value = glm::ceil((col.r + col.g + col.b) / 3.0f * sizeof(GREY_LEVEL) - 2);
 			textBuffer[x + y * (SCREEN_WIDTH + 1)] = GREY_LEVEL[glm::clamp(value, 0, static_cast<int>(sizeof(GREY_LEVEL) - 2))];
 		}
 		textBuffer[y * (SCREEN_WIDTH + 1) + SCREEN_WIDTH] = y + 1 < SCREEN_HEIGHT ? '\n' : '\0';
