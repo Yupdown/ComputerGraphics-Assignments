@@ -4,8 +4,8 @@
 std::string windowTitle = "OpenGLExperiment";
 
 constexpr char GREY_LEVEL[] = R"( .:-=+%*@#)";
-constexpr int SCREEN_WIDTH = 100;
-constexpr int SCREEN_HEIGHT = 100;
+constexpr int SCREEN_WIDTH = 128;
+constexpr int SCREEN_HEIGHT = 128;
 
 glm::vec4 valueBuffer[SCREEN_WIDTH][SCREEN_HEIGHT];
 float depthBuffer[SCREEN_WIDTH][SCREEN_HEIGHT];
@@ -65,7 +65,7 @@ public:
 		float diffuse_Light = glm::max(dot(normal, lightDirection), 0.0f);
 		glm::vec3 diffuse = diffuseColor * diffuse_Light;
 
-		float shiny = 256.0;
+		float shiny = 64.0f;
 		glm::vec3 reflect_Direction = reflect(-lightDirection, normal);
 		float specular_Light = glm::max(0.0f, dot(view_Direction, reflect_Direction));
 		specular_Light = pow(specular_Light, shiny);
@@ -136,7 +136,7 @@ GLvoid Timer()
 
 GLvoid DrawScene()
 {
-	elapsedTime = static_cast<float>(clock()) / 1000.0f;
+	elapsedTime += 0.05f; // static_cast<float>(clock()) / 1000.0f;
 
 	// clear buffers
 	memset(valueBuffer, 0, sizeof(valueBuffer));
@@ -144,13 +144,14 @@ GLvoid DrawScene()
 
 	// calculate and append transform matrix
 	float aspect = static_cast<float>(SCREEN_WIDTH) / SCREEN_HEIGHT;
-	glm::mat4 t = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.1f, -1.0f)); // glm::sin(elapsedTime) - 2.5f));
+	glm::mat4 t = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.1f, -1.5f)); // glm::sin(elapsedTime) - 2.5f));
 	glm::mat4 r = glm::rotate(glm::mat4(1.0f), 0.3f, glm::vec3(1.0f, 0.0f, 0.0f));
-	r = glm::rotate(r, elapsedTime * 3.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+	float rt = elapsedTime * 2.0f;
+	r = glm::rotate(r, sin(rt) + rt + glm::radians(150.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f) * 0.5f);
 
 	program->worldTransform = t * r * s;
-	program->projectTransform = glm::perspective(glm::radians(80.0f + sin(elapsedTime) * 20.0f), aspect, 0.1f, 100.0f); //glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
+	program->projectTransform = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 100.0f); //glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
 
 	auto funcGetT = [](const glm::vec4& lhs, const glm::vec4& rhs, float y) {
 		float t = (y - lhs.y) / (rhs.y - lhs.y);
@@ -253,7 +254,7 @@ GLvoid DrawScene()
 	int ty = static_cast<int>(glm::iround(textPos.y));
 
 	const char* src = "<- Name: Yup";
-	strncpy(textBuffer + (tx + ty * (SCREEN_WIDTH + 1)), src, strlen(src));
+	//strncpy(textBuffer + (tx + ty * (SCREEN_WIDTH + 1)), src, strlen(src));
 
 	// draw onto the screen from the text
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { 0, 0 });
