@@ -138,6 +138,9 @@
     <ClCompile Include="1-31.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="1-33.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OBJ_Loader.h">
